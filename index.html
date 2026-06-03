@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Levels of Dungeons – Coming Soon</title>
+  <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700&family=Crimson+Text:ital@1&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body { width: 100%; height: 100%; overflow: hidden; background: #0d0b14; }
+    body { display: flex; align-items: center; justify-content: center; font-family: 'Cinzel', serif; }
+    canvas { position: fixed; inset: 0; z-index: 0; }
+    #trail { pointer-events: none; }
+    .center {
+      position: relative; z-index: 2;
+      text-align: center; pointer-events: none; user-select: none;
+    }
+    h1 {
+      font-size: clamp(2rem, 6vw, 4.5rem);
+      font-weight: 700; letter-spacing: 0.18em;
+      color: #d4c0f0; text-transform: uppercase; line-height: 1.1;
+    }
+    .sub {
+      margin-top: 1.2rem;
+      font-family: 'Crimson Text', Georgia, serif;
+      font-style: italic;
+      font-size: clamp(0.9rem, 2vw, 1.15rem);
+      letter-spacing: 0.3em; color: #6b5590; text-transform: lowercase;
+    }
+    .line { width: 60px; height: 1px; background: #3d2b5e; margin: 1.4rem auto; }
+    .admin-btn {
+      position: fixed; bottom: 1.5rem; left: 1.5rem; z-index: 10;
+      font-family: 'Cinzel', serif; font-size: 0.6rem;
+      letter-spacing: 0.2em; text-transform: uppercase;
+      color: #3d2b5e; text-decoration: none;
+      border: 1px solid #2a1e42;
+      padding: 0.45rem 0.9rem;
+      background: rgba(13,11,20,0.6);
+      transition: color 0.25s, border-color 0.25s;
+    }
+    .admin-btn:hover { color: #8b6bb5; border-color: #4e3578; }
+  </style>
+</head>
+<body>
+  <canvas id="fog"></canvas>
+  <canvas id="trail"></canvas>
+
+  <div class="center">
+    <div class="line"></div>
+    <h1>Levels of Dungeons</h1>
+    <p class="sub">coming soon</p>
+    <div class="line"></div>
+  </div>
+
+  <a class="admin-btn" href="https://login.levelsofdungeons.de">Admin</a>
+
+  <script>
+    // --- TRAIL ---
+    const trail = document.getElementById('trail');
+    const tctx = trail.getContext('2d');
+    const pts = [];
+    const MAX = 90;
+
+    function resizeAll() {
+      fog.width = trail.width = window.innerWidth;
+      fog.height = trail.height = window.innerHeight;
+    }
+    window.addEventListener('resize', resizeAll);
+
+    window.addEventListener('mousemove', e => {
+      pts.push({ x: e.clientX, y: e.clientY, age: 0 });
+      if (pts.length > MAX) pts.shift();
+    });
+
+    // --- FOG ---
+    const fog = document.getElementById('fog');
+    const fctx = fog.getContext('2d');
+    resizeAll();
+
+    class FogBlob {
+      constructor() { this.reset(true); }
+      reset(init) {
+        this.x = Math.random() * window.innerWidth;
+        this.y = init ? Math.random() * window.innerHeight : window.innerHeight + 100;
+        this.r = 180 + Math.random() * 220;
+        this.vx = (Math.random() - 0.5) * 0.18;
+        this.vy = -(0.08 + Math.random() * 0.14);
+        this.alpha = 0.03 + Math.random() * 0.055;
+        this.drift = Math.random() * Math.PI * 2;
+        this.driftSpeed = 0.002 + Math.random() * 0.003;
+      }
+      update() {
+        this.drift += this.driftSpeed;
+        this.x += this.vx + Math.sin(this.drift) * 0.3;
+        this.y += this.vy;
+        if (this.y + this.r < -50) this.reset(false);
+      }
+      draw(ctx) {
+        const g = ctx.createRadialGradient(this.x, this.y, 0, this.x, this.y, this.r);
+        g.addColorStop(0, `rgba(80, 40, 130, ${this.alpha})`);
+        g.addColorStop(0.5, `rgba(50, 20, 90, ${this.alpha * 0.5})`);
+        g.addColorStop(1, `rgba(20, 10, 40, 0)`);
+        ctx.beginPath();
+        ctx.arc(this.x, this.y, this.r, 0, Math.PI * 2);
+        ctx.fillStyle = g;
+        ctx.fill();
+      }
+    }
+
+    const blobs = Array.from({ length: 18 }, () => new FogBlob());
+
+    function loop() {
+      fctx.clearRect(0, 0, fog.width, fog.height);
+      for (const b of blobs) { b.update(); b.draw(fctx); }
+
+      tctx.clearRect(0, 0, trail.width, trail.height);
+      for (let i = 1; i < pts.length; i++) {
+        const p0 = pts[i - 1], p1 = pts[i];
+        const a = 1 - p1.age / MAX;
+        if (a <= 0) continue;
+        tctx.beginPath();
+        tctx.moveTo(p0.x, p0.y);
+        tctx.lineTo(p1.x, p1.y);
+        tctx.strokeStyle = `rgba(140, 90, 210, ${a * 0.65})`;
+        tctx.lineWidth = 1.5 * a;
+        tctx.lineCap = 'round';
+        tctx.stroke();
+      }
+      for (const p of pts) p.age += 0.8;
+      while (pts.length && pts[0].age >= MAX) pts.shift();
+
+      requestAnimationFrame(loop);
+    }
+    loop();
+  </script>
+</body>
+</html>
