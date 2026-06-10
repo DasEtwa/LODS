@@ -3,14 +3,15 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Levels of Dungeons – Coming Soon</title>
+  <title>Levels of Dungeons</title>
   <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700&family=Crimson+Text:ital@1&display=swap" rel="stylesheet">
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-    html, body { width: 100%; height: 100%; overflow: hidden; background: #0d0b14; }
+    html, body { width: 100%; height: 100%; overflow: hidden; background: #07050f; }
     body { display: flex; align-items: center; justify-content: center; font-family: 'Cinzel', serif; }
     canvas { position: fixed; inset: 0; z-index: 0; }
-    #trail { pointer-events: none; }
+    #particles { pointer-events: none; }
+
     .center {
       position: relative; z-index: 2;
       text-align: center; pointer-events: none; user-select: none;
@@ -18,16 +19,90 @@
     h1 {
       font-size: clamp(2rem, 6vw, 4.5rem);
       font-weight: 700; letter-spacing: 0.18em;
-      color: #d4c0f0; text-transform: uppercase; line-height: 1.1;
+      color: #e2d4ff; text-transform: uppercase; line-height: 1.1;
+      text-shadow: 0 0 60px rgba(140, 80, 255, 0.4);
     }
     .sub {
       margin-top: 1.2rem;
       font-family: 'Crimson Text', Georgia, serif;
       font-style: italic;
-      font-size: clamp(0.9rem, 2vw, 1.15rem);
-      letter-spacing: 0.3em; color: #6b5590; text-transform: lowercase;
+      font-size: clamp(1rem, 2.2vw, 1.3rem);
+      letter-spacing: 0.22em; color: #8a6aaa; text-transform: lowercase;
     }
-    .line { width: 60px; height: 1px; background: #3d2b5e; margin: 1.4rem auto; }
+    .line { width: 60px; height: 1px; background: #2e1f4a; margin: 1.4rem auto; }
+
+    /* Server IP block */
+    .server-block {
+      pointer-events: all;
+      margin-top: 2rem;
+      display: inline-flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 0.6rem;
+    }
+    .server-label {
+      font-family: 'Crimson Text', Georgia, serif;
+      font-style: italic;
+      font-size: clamp(0.9rem, 1.8vw, 1.1rem);
+      letter-spacing: 0.28em;
+      color: #7a5a9a;
+      text-transform: lowercase;
+    }
+    .server-ip-row {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      background: rgba(30, 15, 55, 0.65);
+      border: 1px solid #2e1f4a;
+      padding: 0.6rem 1.1rem;
+      cursor: pointer;
+      transition: border-color 0.25s, background 0.25s;
+    }
+    .server-ip-row:hover {
+      border-color: #6a3fa0;
+      background: rgba(50, 25, 90, 0.75);
+    }
+    .server-ip {
+      font-family: 'Cinzel', serif;
+      font-size: clamp(0.85rem, 2vw, 1.1rem);
+      letter-spacing: 0.12em;
+      color: #c8a8f0;
+    }
+    .copy-icon {
+      width: 16px; height: 16px;
+      opacity: 0.45;
+      transition: opacity 0.2s;
+      flex-shrink: 0;
+    }
+    .server-ip-row:hover .copy-icon { opacity: 0.85; }
+    .server-version {
+      font-family: 'Crimson Text', Georgia, serif;
+      font-style: italic;
+      font-size: clamp(0.85rem, 1.6vw, 1rem);
+      letter-spacing: 0.18em;
+      color: #6a5080;
+    }
+    .copy-toast {
+      position: fixed;
+      bottom: 2.5rem; left: 50%;
+      transform: translateX(-50%) translateY(8px);
+      background: rgba(80, 40, 140, 0.9);
+      color: #e0ccff;
+      font-family: 'Cinzel', serif;
+      font-size: 0.65rem;
+      letter-spacing: 0.25em;
+      padding: 0.45rem 1.2rem;
+      border: 1px solid #5a3a88;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.3s, transform 0.3s;
+      z-index: 20;
+    }
+    .copy-toast.show {
+      opacity: 1;
+      transform: translateX(-50%) translateY(0);
+    }
+
     .admin-btn {
       position: fixed; bottom: 1.5rem; left: 1.5rem; z-index: 10;
       font-family: 'Cinzel', serif; font-size: 0.6rem;
@@ -35,99 +110,172 @@
       color: #3d2b5e; text-decoration: none;
       border: 1px solid #2a1e42;
       padding: 0.45rem 0.9rem;
-      background: rgba(13,11,20,0.6);
+      background: rgba(7,5,15,0.6);
       transition: color 0.25s, border-color 0.25s;
     }
     .admin-btn:hover { color: #8b6bb5; border-color: #4e3578; }
   </style>
 </head>
 <body>
-  <canvas id="fog"></canvas>
-  <canvas id="trail"></canvas>
+  <canvas id="bg"></canvas>
+  <canvas id="particles"></canvas>
 
   <div class="center">
     <div class="line"></div>
     <h1>Levels of Dungeons</h1>
-    <p class="sub">coming soon</p>
+    <p class="sub">minecraft server</p>
     <div class="line"></div>
+
+    <div class="server-block" id="copyBlock">
+      <span class="server-label">server ip</span>
+      <div class="server-ip-row" title="Klicken zum Kopieren">
+        <span class="server-ip">play.levelsofdungeons.de</span>
+        <svg class="copy-icon" viewBox="0 0 24 24" fill="none" stroke="#c8a8f0" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="9" y="9" width="13" height="13" rx="2"/>
+          <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
+        </svg>
+      </div>
+      <span class="server-version">version: 1.26.1.2</span>
+    </div>
   </div>
+
+  <div class="copy-toast" id="toast">KOPIERT</div>
 
   <a class="admin-btn" href="https://login.levelsofdungeons.de">Admin</a>
 
   <script>
-    // --- TRAIL ---
-    const trail = document.getElementById('trail');
-    const tctx = trail.getContext('2d');
-    const pts = [];
-    const MAX = 90;
-
-    function resizeAll() {
-      fog.width = trail.width = window.innerWidth;
-      fog.height = trail.height = window.innerHeight;
-    }
-    window.addEventListener('resize', resizeAll);
-
-    window.addEventListener('mousemove', e => {
-      pts.push({ x: e.clientX, y: e.clientY, age: 0 });
-      if (pts.length > MAX) pts.shift();
+    // ── COPY ──
+    document.getElementById('copyBlock').addEventListener('click', () => {
+      navigator.clipboard.writeText('play.levelsofdungeons.de').then(() => {
+        const t = document.getElementById('toast');
+        t.classList.add('show');
+        setTimeout(() => t.classList.remove('show'), 1800);
+      });
     });
 
-    // --- FOG ---
-    const fog = document.getElementById('fog');
-    const fctx = fog.getContext('2d');
-    resizeAll();
+    // ── CANVAS SETUP ──
+    const bg = document.getElementById('bg');
+    const bgc = bg.getContext('2d');
+    const pc = document.getElementById('particles');
+    const pctx = pc.getContext('2d');
 
-    class FogBlob {
-      constructor() { this.reset(true); }
-      reset(init) {
+    function resize() {
+      bg.width = pc.width = window.innerWidth;
+      bg.height = pc.height = window.innerHeight;
+    }
+    window.addEventListener('resize', resize);
+    resize();
+
+    // ── MOUSE ──
+    let mx = window.innerWidth / 2, my = window.innerHeight / 2;
+    let tx = mx, ty = my;
+    window.addEventListener('mousemove', e => { tx = e.clientX; ty = e.clientY; });
+
+    // ── RUNE PARTICLES (mouse repulsion) ──
+    const RUNES = '᚛᚜ᚐᚑᚒᚓᚔᚕᚖᚗᚘᚙᚚ⌘⌥⎇⌦⎊⎋';
+    class RuneParticle {
+      constructor() { this.init(); }
+      init() {
         this.x = Math.random() * window.innerWidth;
-        this.y = init ? Math.random() * window.innerHeight : window.innerHeight + 100;
-        this.r = 180 + Math.random() * 220;
-        this.vx = (Math.random() - 0.5) * 0.18;
-        this.vy = -(0.08 + Math.random() * 0.14);
-        this.alpha = 0.03 + Math.random() * 0.055;
-        this.drift = Math.random() * Math.PI * 2;
-        this.driftSpeed = 0.002 + Math.random() * 0.003;
+        this.y = Math.random() * window.innerHeight;
+        this.vx = (Math.random() - 0.5) * 0.3;
+        this.vy = (Math.random() - 0.5) * 0.3;
+        this.char = RUNES[Math.floor(Math.random() * RUNES.length)];
+        this.baseAlpha = 0.04 + Math.random() * 0.1;
+        this.alpha = this.baseAlpha;
+        this.size = 10 + Math.random() * 18;
+        this.angle = Math.random() * Math.PI * 2;
+        this.spin = (Math.random() - 0.5) * 0.008;
       }
       update() {
-        this.drift += this.driftSpeed;
-        this.x += this.vx + Math.sin(this.drift) * 0.3;
-        this.y += this.vy;
-        if (this.y + this.r < -50) this.reset(false);
+        // repulsion from cursor
+        const dx = this.x - mx, dy = this.y - my;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+        const repel = 140;
+        if (dist < repel && dist > 0) {
+          const force = (repel - dist) / repel;
+          this.vx += (dx / dist) * force * 0.7;
+          this.vy += (dy / dist) * force * 0.7;
+          this.alpha = Math.min(0.55, this.baseAlpha + force * 0.5);
+        } else {
+          this.alpha += (this.baseAlpha - this.alpha) * 0.04;
+        }
+
+        this.vx *= 0.97; this.vy *= 0.97;
+        this.x += this.vx; this.y += this.vy;
+        this.angle += this.spin;
+
+        const W = window.innerWidth, H = window.innerHeight;
+        if (this.x < -40) this.x = W + 40;
+        if (this.x > W + 40) this.x = -40;
+        if (this.y < -40) this.y = H + 40;
+        if (this.y > H + 40) this.y = -40;
       }
       draw(ctx) {
-        const g = ctx.createRadialGradient(this.x, this.y, 0, this.x, this.y, this.r);
-        g.addColorStop(0, `rgba(80, 40, 130, ${this.alpha})`);
-        g.addColorStop(0.5, `rgba(50, 20, 90, ${this.alpha * 0.5})`);
-        g.addColorStop(1, `rgba(20, 10, 40, 0)`);
-        ctx.beginPath();
-        ctx.arc(this.x, this.y, this.r, 0, Math.PI * 2);
-        ctx.fillStyle = g;
-        ctx.fill();
+        ctx.save();
+        ctx.translate(this.x, this.y);
+        ctx.rotate(this.angle);
+        ctx.globalAlpha = this.alpha;
+        ctx.fillStyle = '#9060d0';
+        ctx.font = `${this.size}px serif`;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(this.char, 0, 0);
+        ctx.restore();
       }
     }
 
-    const blobs = Array.from({ length: 18 }, () => new FogBlob());
+    const runes = Array.from({ length: 55 }, () => new RuneParticle());
 
-    function loop() {
-      fctx.clearRect(0, 0, fog.width, fog.height);
-      for (const b of blobs) { b.update(); b.draw(fctx); }
+    // ── AURORA BACKGROUND ──
+    let auroraT = 0;
+    function drawAurora() {
+      bgc.clearRect(0, 0, bg.width, bg.height);
 
-      tctx.clearRect(0, 0, trail.width, trail.height);
-      for (let i = 1; i < pts.length; i++) {
-        const p0 = pts[i - 1], p1 = pts[i];
-        const a = 1 - p1.age / MAX;
-        if (a <= 0) continue;
-        tctx.beginPath();
-        tctx.moveTo(p0.x, p0.y);
-        tctx.lineTo(p1.x, p1.y);
-        tctx.strokeStyle = `rgba(140, 90, 210, ${a * 0.65})`;
-        tctx.lineWidth = 1.5 * a;
-        tctx.lineCap = 'round';
-        tctx.stroke();
+      // base dark
+      bgc.fillStyle = '#07050f';
+      bgc.fillRect(0, 0, bg.width, bg.height);
+
+      // moving aurora bands
+      const W = bg.width, H = bg.height;
+      const bands = [
+        { col: [60, 20, 120], phase: 0, amp: 0.18, freq: 0.0012 },
+        { col: [30, 10, 80],  phase: 1.8, amp: 0.12, freq: 0.0017 },
+        { col: [100, 40, 160], phase: 3.5, amp: 0.1, freq: 0.001 },
+      ];
+
+      for (const b of bands) {
+        const cx = W * (0.3 + 0.4 * Math.sin(auroraT * b.freq + b.phase));
+        const cy = H * (0.35 + b.amp * Math.sin(auroraT * b.freq * 1.3 + b.phase + 1));
+        const r = W * (0.55 + 0.15 * Math.sin(auroraT * 0.0009 + b.phase));
+        const g = bgc.createRadialGradient(cx, cy, 0, cx, cy, r);
+        const [rr, gg, bb] = b.col;
+        g.addColorStop(0, `rgba(${rr},${gg},${bb},0.13)`);
+        g.addColorStop(0.5, `rgba(${rr},${gg},${bb},0.04)`);
+        g.addColorStop(1, `rgba(${rr},${gg},${bb},0)`);
+        bgc.fillStyle = g;
+        bgc.fillRect(0, 0, W, H);
       }
-      for (const p of pts) p.age += 0.8;
-      while (pts.length && pts[0].age >= MAX) pts.shift();
+
+      // cursor glow — follows mouse softly
+      const gx = bgc.createRadialGradient(mx, my, 0, mx, my, 260);
+      gx.addColorStop(0, 'rgba(120, 60, 220, 0.09)');
+      gx.addColorStop(1, 'rgba(120, 60, 220, 0)');
+      bgc.fillStyle = gx;
+      bgc.fillRect(0, 0, W, H);
+    }
+
+    // ── MAIN LOOP ──
+    function loop() {
+      // smooth cursor
+      mx += (tx - mx) * 0.06;
+      my += (ty - my) * 0.06;
+
+      auroraT++;
+      drawAurora();
+
+      pctx.clearRect(0, 0, pc.width, pc.height);
+      for (const r of runes) { r.update(); r.draw(pctx); }
 
       requestAnimationFrame(loop);
     }
