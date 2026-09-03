@@ -47,6 +47,8 @@
     pending: new Map(),
     requestSequence: 0,
     capabilities: null,
+    configRevision: null,
+    saving: false,
     liveValues: new Map(),
     subscriptionId: null,
     preview: null,
@@ -90,9 +92,15 @@
     $("#connectionLabel").textContent = state.connected ? "Live verbunden" : state.connecting ? "Verbindet …" : "Nicht verbunden";
     $("#connectButton").textContent = state.connected ? "Trennen" : state.connecting ? "Verbindet …" : "Verbinden";
     $("#connectButton").disabled = state.connecting;
+    const canSave = state.connected && Number.isInteger(state.configRevision)
+      && (state.capabilities?.operations || []).includes("SAVE_CONFIG");
+    $("#saveButton").disabled = !canSave || state.saving;
+    $("#saveButton").textContent = state.saving ? "Speichert …" : "Auf Server speichern";
     $("#previewMode").textContent = state.connected ? "Live-Servervorschau" : "Lokale Vorschau";
     $(".preview-toolbar .live-dot").classList.toggle("live", state.connected);
-    $("#saveHint").textContent = state.connected ? "Live-Daten aktiv. Änderungen bleiben eine flüchtige Vorschau." : "Änderungen betreffen nur diese Vorschau.";
+    $("#saveHint").textContent = canSave
+      ? "Speichern validiert die Werte, legt ein Backup an und lädt NeoTab neu."
+      : state.connected ? "Live-Daten aktiv. Config-Speichern ist serverseitig deaktiviert." : "Änderungen betreffen nur diese Vorschau.";
   }
 
   function navigate(surface) {
@@ -342,6 +350,7 @@
   function configToEditor(snapshot) {
     const config = snapshot?.config;
     if (!config) throw new Error("NeoTab hat keine lesbare Config geliefert.");
+    state.configRevision = snapshot.revision;
     const tab = config.defaultTab || {};
     const scoreboard = config.scoreboard || {};
     const score = scoreboard.defaultProfile || {};
@@ -354,7 +363,7 @@
       bossbar: { enabled: Boolean(bossbar.enabled), title: boss.title ?? initialEditor.bossbar.title, value: boss.value ?? "{online}", max: boss.max ?? "{max}", color: boss.color ?? "purple", style: boss.style ?? "solid", permission: boss.permission ?? "", worlds: Array.isArray(boss.worlds) ? boss.worlds.join(", ") : "" }
     };
     state.baseline = clone(state.editor);
-    syncBindings(); render();
+    syncBindings(); render(); updateConnectionUi();
   }
 
   function refreshPlayerSelect() {
@@ -414,6 +423,7 @@
         request("GET_CAPABILITIES"), request("GET_CONFIG"), request("GET_PLAYERS"), request("PATCH_PREVIEW", { action: "open" })
       ]);
       state.capabilities = capabilities;
+      updateConnectionUi();
       state.preview = preview;
       state.players = [DEMO_PLAYER, ...(players || [])];
       refreshPlayerSelect(); configToEditor(config);
@@ -442,9 +452,9 @@
   }
 
   function cleanupConnection() {
-    state.connected = false; state.connecting = false; state.socket = null; state.capabilities = null; state.subscriptionId = null; state.preview = null; state.liveValues.clear();
+    state.connected = false; state.connecting = false; state.saving = false; state.socket = null; state.capabilities = null; state.configRevision = null; state.subscriptionId = null; state.preview = null; state.liveValues.clear();
     state.pending.forEach(pending => { clearTimeout(pending.timer); pending.reject(new Error("Verbindung geschlossen.")); }); state.pending.clear();
-    state.players = [DEMO_PLAYER]; state.selectedPlayerId = "demo"; $("#authToken").value = "";
+    state.players = [DEMO_PLAYER]; state.selectedPlayerId = "demo"; $("#authToken").value = ""; $("#writeToken").value = "";
     refreshPlayerSelect(); updateConnectionUi(); render();
   }
 
@@ -513,6 +523,63 @@
     showToast("Preview als JSON exportiert.");
   }
 
+  function writableConfigValues(editor = state.editor) {
+    return {
+      "server-name": editor.tab.serverName,
+      "ram-format": editor.tab.footer,
+      "animation-style": editor.tab.animationStyle,
+      "custom-colors": [...editor.tab.colors],
+      "update-interval-ticks": Number(editor.tab.interval),
+      "scoreboard.enabled": Boolean(editor.scoreboard.enabled),
+      "scoreboard.title": editor.scoreboard.title,
+      "scoreboard.lines": [...editor.scoreboard.lines],
+      "scoreboard.update-interval-ticks": Number(editor.scoreboard.interval),
+      "extras.actionbar.enabled": Boolean(editor.actionbar.enabled),
+      "bossbar.enabled": Boolean(editor.bossbar.enabled),
+      "bossbar.title": editor.bossbar.title,
+      "bossbar.value": editor.bossbar.value,
+      "bossbar.max": editor.bossbar.max,
+      "bossbar.color": editor.bossbar.color,
+      "bossbar.style": editor.bossbar.style,
+      "bossbar.conditions.permission": editor.bossbar.permission,
+      "bossbar.conditions.worlds": editor.bossbar.worlds.split(",").map(value => value.trim()).filter(Boolean)
+    };
+  }
+
+  function changedConfigValues() {
+    const current = writableConfigValues(state.editor);
+    const baseline = writableConfigValues(state.baseline);
+    return Object.fromEntries(Object.entries(current).filter(([path, value]) => JSON.stringify(value) !== JSON.stringify(baseline[path])));
+  }
+
+  async function saveConfig() {
+    if (!state.connected || !(state.capabilities?.operations || []).includes("SAVE_CONFIG")) {
+      return showToast("Config-Speichern ist auf diesem Server nicht freigeschaltet.", true);
+    }
+    const writeToken = $("#writeToken").value;
+    if (writeToken.length < 32) return showToast("Zum Speichern wird der separate Schreib-Token benötigt.", true);
+    if (!Number.isInteger(state.configRevision)) return showToast("Keine gültige Config-Revision geladen.", true);
+    const values = changedConfigValues();
+    if (!Object.keys(values).length) return showToast("Es gibt keine Änderungen zum Speichern.");
+    clearTimeout(state.patchDebounce);
+    state.saving = true; updateConnectionUi();
+    try {
+      await state.previewQueue;
+      const snapshot = await request("SAVE_CONFIG", {
+        expectedRevision: state.configRevision,
+        writeToken,
+        values
+      }, 15000);
+      configToEditor(snapshot);
+      state.preview = await request("PATCH_PREVIEW", { action: "open" });
+      showToast("Config atomar gespeichert und NeoTab neu geladen.");
+    } catch (error) {
+      showToast(`Speichern fehlgeschlagen: ${error.message}`, true);
+    } finally {
+      state.saving = false; updateConnectionUi();
+    }
+  }
+
   function initialize() {
     const storedUrl = localStorage.getItem("neotab.socketUrl"); if (storedUrl) $("#socketUrl").value = storedUrl;
     $$(".nav-item").forEach(item => item.addEventListener("click", () => navigate(item.dataset.surface)));
@@ -526,6 +593,7 @@
     $("#addScoreboardLine").addEventListener("click", addScoreboardLine);
     $("#resetButton").addEventListener("click", resetEditor);
     $("#exportButton").addEventListener("click", exportPreview);
+    $("#saveButton").addEventListener("click", saveConfig);
     $$(".viewport-switch button").forEach(button => button.addEventListener("click", () => { $$(".viewport-switch button").forEach(item => item.classList.toggle("active", item === button)); $("#minecraftFrame").classList.toggle("compact", button.dataset.scale === "compact"); }));
     window.addEventListener("beforeunload", () => { state.intentionalClose = true; state.socket?.close(); });
     syncBindings(); refreshPlayerSelect(); updateConnectionUi(); render();

@@ -50,9 +50,10 @@
         <div class="connection-grid">
           <label class="field wide"><span>WebSocket-Adresse</span><input id="socketUrl" type="url" value="wss://play.levelsofdungeons.de/neotab" spellcheck="false" placeholder="wss://dein-server.example/neotab"></label>
           <label class="field"><span>Bridge-Token</span><input id="authToken" type="password" autocomplete="off" spellcheck="false" placeholder="Mindestens 32 Zeichen"></label>
+          <label class="field"><span>Schreib-Token <em>optional</em></span><input id="writeToken" type="password" autocomplete="off" spellcheck="false" placeholder="Nur zum Speichern"></label>
           <button class="primary-button connect-button" id="connectButton" type="button">Verbinden</button>
         </div>
-        <div class="connection-help"><span>HTTPS benötigt eine <code>wss://</code>-Adresse.</span><span>Der Token wird nicht gespeichert.</span></div>
+        <div class="connection-help"><span>HTTPS benötigt eine <code>wss://</code>-Adresse.</span><span>Die Tokens werden nicht gespeichert.</span></div>
       </div>
 
       <div class="workspace-head">
@@ -114,7 +115,7 @@
         </section>
       </div>
 
-      <footer class="workspace-footer"><p id="saveHint">Änderungen betreffen nur diese Vorschau.</p><div><button class="secondary-button" id="resetButton" type="button">Zurücksetzen</button><button class="primary-button" id="exportButton" type="button">Preview exportieren</button></div></footer>
+      <footer class="workspace-footer"><p id="saveHint">Änderungen betreffen nur diese Vorschau.</p><div><button class="secondary-button" id="resetButton" type="button">Zurücksetzen</button><button class="secondary-button" id="exportButton" type="button">Exportieren</button><button class="primary-button" id="saveButton" type="button" disabled>Auf Server speichern</button></div></footer>
     </section>
   </main>
 
