@@ -1,0 +1,72 @@
+name: Build and deploy website
+
+on:
+  push:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: _projects/inselzeit/package-lock.json
+      - name: Install game dependencies
+        working-directory: _projects/inselzeit
+        run: npm ci
+      - name: Test game
+        working-directory: _projects/inselzeit
+        run: npm test
+      - name: Build game
+        working-directory: _projects/inselzeit
+        run: npm run build
+      - name: Assemble complete website
+        shell: bash
+        run: |
+          set -euo pipefail
+          site="$RUNNER_TEMP/complete-site"
+          mkdir -p "$site"
+          git archive HEAD | tar -x -C "$site"
+          # Only repository infrastructure and game source are excluded from publication.
+          rm -rf "$site/.github" "$site/_projects/inselzeit"
+          rmdir "$site/_projects" 2>/dev/null || true
+          if [ -e "$site/wgv1" ]; then
+            echo 'The wgv1 path is already tracked; refusing to replace it.' >&2
+            exit 1
+          fi
+          mkdir -p "$site/wgv1"
+          cp -a _projects/inselzeit/dist/. "$site/wgv1/"
+          # Fail instead of publishing if any existing public file was changed or omitted.
+          while IFS= read -r -d '' file; do
+            case "$file" in .github/*|_projects/inselzeit/*) continue;; esac
+            [ -f "$site/$file" ] && cmp "$file" "$site/$file" || { echo "Existing site file changed: $file" >&2; exit 1; }
+          done < <(git ls-files -z)
+          test "$(tr -d '\r\n' < "$site/CNAME")" = 'levelsofdungeons.de'
+          test -f "$site/index.html" && test -f "$site/wgv1/index.html"
+          test -f "$site/wgv1/sw.js" && test -f "$site/wgv1/manifest.webmanifest"
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: ${{ runner.temp }}/complete-site
+  deploy:
+    if: github.ref == 'refs/heads/main'
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4
