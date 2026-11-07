@@ -25,7 +25,7 @@ Für die Veröffentlichung den Inhalt von `dist/` auf einen statischen HTTPS-Web
 
 1. Seed eingeben und ein neues Spiel starten. Derselbe Seed erzeugt dieselbe Insel.
 2. Das Schiff erreicht nach etwa elf Sekunden die Küste und bringt fünf Erwachsene sowie Holz, Stein und Nahrung mit. Bis dahin ist der Bau mangels Vorräten gesperrt.
-3. Unten ein Gebäude wählen, auf eine geeignete Stelle tippen und **Hier bauen** bestätigen. Grün bedeutet baubar; Rot zeigt einen ungültigen Platz. Ein Gebäude ohne aktiven Baumodus antippen, um seine Daten anzusehen.
+3. Unten links den Bau-Shop öffnen und ein Gebäude wählen. Auf eine geeignete Stelle tippen und **Hier bauen** bestätigen. Grün bedeutet baubar; Rot zeigt einen ungültigen Platz. Ein Gebäude ohne aktiven Baumodus antippen, um seine Daten anzusehen.
 4. Für alle fünf Menschen werden zwei Wohnhäuser benötigt. Einen Bauernhof auf fruchtbarem Boden bauen. Holzfäller, Steinbruch und Mine benötigen entsprechende Vorkommen in der Nähe. Die Erklärung im Baupanel nennt den Grund für ungültige Standorte.
 5. Die Spielgeschwindigkeit mit `1×` umschalten, mit `Ⅱ` pausieren und mit `↓` manuell speichern. Es gibt einen lokalen Speicherplatz; regelmäßiges Autosave und ein zusätzlicher Speicherversuch beim Verlassen sichern den aktuellen Zustand. Das Hauptmenü lädt diesen Spielstand.
 
